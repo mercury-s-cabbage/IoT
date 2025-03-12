@@ -9,12 +9,21 @@
 
 #define NROWS 3
 #define NCOLS 3
+#define SCAN_INTERVAL 10 
 
 const int row_pins[NROWS] = {2, 3, 4};
 const int col_pins[NCOLS] = {5, 6, 7};
 bool btn_pressed[NCOLS] = {false, false, false};
+volatile uint8_t current_row = 0;
 
-const int buttons[3][3] = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
+void setup_timer() {
+  cli(); // Остановить прерывания
+  TCCR1A = 0; 
+  TCCR1B = (1 << WGM12) | (1 << CS12); 
+  OCR1A = (F_CPU / 256 / 1000) * SCAN_INTERVAL - 1; 
+  TIMSK1 |= (1 << OCIE1A); 
+  sei(); // Включить прерывания
+}
 
 void setup()
 {
@@ -25,27 +34,25 @@ void setup()
     pinMode(col_pins[i], INPUT_PULLUP);
   }
   Serial.begin(9600);
+    setup_timer();
 }
 
 void loop()
 {
-  update_button_state();
-  delay(50);
 }
 
-void update_button_state() {
-  for(int irow = 0; irow < NROWS; irow++) {
-    for(int i = 0; i < NROWS; i++) {
-      digitalWrite(row_pins[i], HIGH);
-    }
-    // set the row that we check in LOW 
-    digitalWrite(row_pins[irow], LOW);
-    for(int icol = 0; icol < NCOLS; icol++) {
-      // value inversion to make true correspond to press
-      btn_pressed[icol] = !digitalRead(col_pins[icol]);
-    }
-    report_row_states(irow);
+ISR(TIMER1_COMPA_vect) {
+  for(int i = 0; i < NROWS; i++) {
+    digitalWrite(row_pins[i], HIGH);
   }
+  digitalWrite(row_pins[current_row], LOW);
+
+  for(int icol = 0; icol < NCOLS; icol++) {
+    btn_pressed[icol] = !digitalRead(col_pins[icol]);
+  }
+  report_row_states(current_row);
+
+  current_row = (current_row + 1) % NROWS;
 }
 
 void report_row_states(int row_number) {
