@@ -1,11 +1,8 @@
-
-const int buttonPins[] = {5, 6, 7};  
-const int numButtons = sizeof(buttonPins) / sizeof(buttonPins[0]);
-const int ledPin = LED_BUILTIN;     
-
+const int buttonPins[] = {13};  
+const int numButtons = sizeof(buttonPins);  
+int loopstate=0;
 void setup() {
   Serial.begin(9600);
-  pinMode(ledPin, OUTPUT);
   
   for (int i = 0; i < numButtons; i++) {
     pinMode(buttonPins[i], INPUT);
@@ -14,17 +11,18 @@ void setup() {
 
 void loop() {
   bool anyActive = false; 
-  
+  loopstate=loopstate+1;
   for (int i = 0; i < numButtons; i++) {
     int state = digitalRead(buttonPins[i]);
-    if (state == HIGH) {
-      Serial.print("Пин ");
+      Serial.print(loopstate);
+      Serial.print(" ");
+      Serial.print("Pin ");
       Serial.print(buttonPins[i]);
-      Serial.println(" активен (1)");
+      Serial.print(" ");
+      Serial.println(state);
       anyActive = true;
-    }
+    
   }
   
-  digitalWrite(ledPin, anyActive ? HIGH : LOW);
-  delay(100);
+  delay(800);
 }
