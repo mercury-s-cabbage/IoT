@@ -1,7 +1,8 @@
 import paho.mqtt.client as mqtt_client
+import sqlite3
 
 broker = "broker.emqx.io"
-topic = "esp8266/commands"
+topic = "1254926558"
 
 
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -14,7 +15,12 @@ def on_connect(client, userdata, flags, rc, properties=None):
 
 def on_message(client, userdata, msg):
     global current_data
-    current_data = msg.payload.decode() # TODO: Сохранять историю данных в БД
+    current_data = msg.payload.decode()
+    conn = sqlite3.connect('DungeonGame.db')
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO data (chat_id, data) VALUES (?, ?)', (topic, int(current_data)))
+    conn.commit()
+    conn.close()
     print(f"MQTT received: {current_data}")
 
 def mqtt_loop():

@@ -47,9 +47,28 @@ def buttons(message):
 def get_hero_name(message):
     chat_id = message.chat.id
     hero_name = message.text.strip()
-    user_data[chat_id] = {'name': hero_name}
-    msg = bot.send_message(chat_id, "Укажите номер устройства")
-    bot.register_next_step_handler(msg, get_device_number)
+
+    conn = sqlite3.connect('DungeonGame.db')
+    cursor = conn.cursor()
+
+    # Получаем id и имена пользователей с таким chat_id
+    cursor.execute("SELECT id, name FROM users WHERE chat_id = ?", (chat_id,))
+    users = cursor.fetchall()
+
+    # Пытаемся найти пользователя с таким именем
+    user = next((user for user in users if user[1] == hero_name), None)
+
+    if user:
+        # Пользователь найден
+        user_data[chat_id] = {'name': hero_name, 'user_id': user[0]}
+        bot.send_message(chat_id, f"Добро пожаловать, {hero_name}!")
+    else:
+        # Пользователь не найден — продолжаем регистрацию
+        user_data[chat_id] = {'name': hero_name}
+        msg = bot.send_message(chat_id, "Укажите номер устройства")
+        bot.register_next_step_handler(msg, get_device_number)
+
+    conn.close()
 
 def get_device_number(message):
     conn = sqlite3.connect('DungeonGame.db')
@@ -61,6 +80,7 @@ def get_device_number(message):
         user_id = bdi.register_user(cursor, name, chat_id, device_number, )
         conn.commit()
         bot.send_message(chat_id, f"Регистрация завершена! Добро пожаловать, {name}.")
+        user_data[chat_id] = {'name': name, 'user_id': user_id}
     except ValueError as e:
         bot.send_message(chat_id, str(e))
         msg = bot.send_message(chat_id, "Пожалуйста, введите номер устройства ещё раз")
@@ -71,16 +91,16 @@ def send_random_level(chat_id):
     conn = sqlite3.connect('DungeonGame.db')
     cursor = conn.cursor()
 
-    # Получаем user_id по chat_id
-    cursor.execute('SELECT id FROM users WHERE chat_id = ?', (chat_id,))
-    user = cursor.fetchone()
-    if not user:
+    user_info = user_data.get(chat_id)
+    #print(user_info)
+    if user_info and 'user_id' in user_info:
+        user_id = user_info['user_id']
+        #TODO: отправляем боту топик, на который публиковать инфу
+    else:
         bot.send_message(chat_id, "Пользователь не зарегистрирован.")
         conn.close()
         return None, None, None
-    user_id = user[0]
 
-    # Получаем id уровней, которые пользователь прошёл успешно (result=1)
     cursor.execute('''
         SELECT level_id FROM user_progress
         WHERE user_id = ? AND result = 1
@@ -131,20 +151,20 @@ def check_answer(message, level_id, answer, loose_text):
     chat_id = message.chat.id
     user_answer = message.text.strip()
 
+    user_id = user_data[chat_id]['user_id']
+    #print(user_id)
+
     conn = sqlite3.connect('DungeonGame.db')
     cursor = conn.cursor()
 
-    cursor.execute('SELECT id FROM users WHERE chat_id = ?', (chat_id,))
-    user = cursor.fetchone()
-    if not user:
-        bot.send_message(chat_id, "Пользователь не зарегистрирован.")
-        conn.close()
-        return
-    user_id = user[0]
-
     date_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    if user_answer == str(answer):
+    cursor.execute('SELECT data FROM data WHERE chat_id = ? ORDER BY id DESC LIMIT 1', (chat_id,))
+    row = cursor.fetchone()
+    device_answer = str(row[0]) if row else None
+    print(device_answer)
+
+    if user_answer == str(answer) or device_answer == str(answer):
         bot.send_message(chat_id, "Правильно! Переходим к следующему уровню.")
 
         cursor.execute('''
@@ -153,12 +173,11 @@ def check_answer(message, level_id, answer, loose_text):
         ''', (user_id, level_id, 1, date_str))
         conn.commit()
 
-
         next_level_id, new_answer, new_loose_text = send_random_level(chat_id)
         if new_answer is not None:
             bot.register_next_step_handler(message, lambda m: check_answer(m, next_level_id, new_answer, new_loose_text))
         else:
-            bot.send_message(chat_id, "Уровней больше нет.")
+            bot.send_message(chat_id, "Уровни закончились. Поздравляем!")
     else:
         bot.send_message(chat_id, loose_text or "Неверный ответ. Игра окончена.")
 

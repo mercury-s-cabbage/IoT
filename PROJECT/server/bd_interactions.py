@@ -46,6 +46,14 @@ def create_db(cursor):
         )
     ''')
 
+    cursor.execute('''
+            CREATE TABLE IF NOT EXISTS data (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER NOT NULL,
+                data INTEGER NOT NULL
+            )
+        ''')
+
 # Admin new device
 def add_device(cursor, number, state):
     cursor.execute('''
@@ -53,21 +61,6 @@ def add_device(cursor, number, state):
         VALUES (?, ?)
     ''', (number, state))
 
-
-# Registration
-# def register_user(cursor, number, name, chat_id):
-#     cursor.execute("INSERT INTO users (name, chat_id) VALUES (?, ?)", (name, chat_id))
-#     user_id = cursor.lastrowid
-#     cursor.execute('''
-#         UPDATE devices
-#         SET owner = ?, state = ?
-#         WHERE number = ?
-#     ''', (user_id, 'active', number))
-#
-#     if cursor.rowcount == 0:
-#         cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
-#         raise ValueError(f"Device with number {number} not found in database.")
-#     return user_id
 
 def register_user(cursor, name, chat_id, device_number):
     cursor.execute('SELECT id FROM devices WHERE number = ?', (device_number,))
@@ -83,11 +76,15 @@ def register_user(cursor, name, chat_id, device_number):
         VALUES (?, ?, ?)
     ''', (name, chat_id, device_id))
 
+    user_id = cursor.lastrowid
+
     cursor.execute('''
         UPDATE devices
         SET state = ?
         WHERE id = ?
     ''', ('active', device_id))
+
+    return user_id
 
 def add_user_progress(cursor, user_id, level_id, result, date=None):
     if date is None:
