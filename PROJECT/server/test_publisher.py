@@ -1,6 +1,4 @@
-import time
 import paho.mqtt.client as mqtt_client
-import random
 from uuid import getnode as get_mac
 import hashlib
 
@@ -22,17 +20,6 @@ print(client.connect(broker))
 
 client.loop_start()
 print("Publishing")
-
-
-# while True:
-#     current_time = time.localtime()
-#     current_second = current_time.tm_sec
-#
-#     if current_second % 2 == 0:
-#         print('send')
-#         client.publish(f"123", "1234")
-#
-#     time.sleep(1)
 
 while True:
     data_to_send = input("Введите данные для отправки (или 'exit' для выхода): ")
